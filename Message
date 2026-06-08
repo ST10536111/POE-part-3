@@ -1,0 +1,192 @@
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
+import java.util.ArrayList;
+
+/**
+ * JUnit 5 Unit Tests for QuickChat POE (Part 3)
+ *
+ * HOW TO RUN IN NETBEANS:
+ * 1. Right-click project > Properties > Libraries > Add Library > JUnit 5
+ * 2. Right-click MessageTest.java > Test File
+ *
+ * Test Data (as per assignment specification):
+ * Msg 1: +27834557896 | "Did you get the cake?"                                       | Sent
+ * Msg 2: +27838884567 | "Where are you? You are late!I have asked you to be on time." | Stored
+ * Msg 3: +27834484567 | "Yohoooo, I am at your gate."                                 | Disregarded
+ * Msg 4: 0838884567   | "It is dinner time !"                                          | Sent
+ * Msg 5: +27838884567 | "Ok, I am leaving without you."                               | Stored
+ */
+public class MessageTest {
+
+    private QuickChatApp.Message msg1, msg2, msg3, msg4, msg5;
+
+    @BeforeEach
+    void setUp() {
+        // Clear all static arrays before each test to prevent cross-test pollution
+        QuickChatApp.Message.getSentMessageTexts().clear();
+        QuickChatApp.Message.getStoredMessages().clear();
+        QuickChatApp.Message.getDisregardedMessages().clear();
+        QuickChatApp.Message.getMessageHashes().clear();
+        QuickChatApp.Message.getMessageIDs().clear();
+
+        // Create test messages
+        msg1 = new QuickChatApp.Message(1, "+27834557896", "Did you get the cake?");
+        msg2 = new QuickChatApp.Message(2, "+27838884567", "Where are you? You are late!I have asked you to be on time.");
+        msg3 = new QuickChatApp.Message(3, "+27834484567", "Yohoooo, I am at your gate.");
+        msg4 = new QuickChatApp.Message(4, "0838884567",   "It is dinner time !");
+        msg5 = new QuickChatApp.Message(5, "+27838884567", "Ok, I am leaving without you.");
+
+        // Apply flags
+        msg1.SentMessage("1"); // Send
+        msg2.SentMessage("3"); // Store
+        msg3.SentMessage("2"); // Disregard
+        msg4.SentMessage("1"); // Send
+        msg5.SentMessage("3"); // Store
+    }
+
+    // ============================================================
+    // TEST 1: Sent Messages array correctly populated
+    // Developer entry for messages 1 and 4
+    // Expected: array contains "Did you get the cake?" and "It is dinner time!"
+    // ============================================================
+    @Test
+    void testSentMessagesArrayCorrectlyPopulated() {
+        ArrayList<String> sent = QuickChatApp.Message.getSentMessageTexts();
+
+        assertTrue(sent.contains("Did you get the cake?"),
+            "Sent array should contain 'Did you get the cake?'");
+        assertTrue(sent.contains("It is dinner time !"),
+            "Sent array should contain 'It is dinner time !'");
+        assertEquals(2, sent.size(),
+            "Sent array should have exactly 2 messages");
+    }
+
+    // ============================================================
+    // TEST 2: Display the longest message
+    // Test data: messages 1-4
+    // Expected: "Where are you? You are late!I have asked you to be on time."
+    // ============================================================
+    @Test
+    void testLongestStoredMessage() {
+        ArrayList<QuickChatApp.Message> stored = QuickChatApp.Message.getStoredMessages();
+
+        assertFalse(stored.isEmpty(), "Stored messages should not be empty");
+
+        QuickChatApp.Message longest = stored.get(0);
+        for (QuickChatApp.Message m : stored)
+            if (m.getMessageText().length() > longest.getMessageText().length()) longest = m;
+
+        assertEquals(
+            "Where are you? You are late!I have asked you to be on time.",
+            longest.getMessageText(),
+            "Longest message should be Message 2"
+        );
+    }
+
+    // ============================================================
+    // TEST 3: Search for messageID
+    // Test data: Message 4 (developer: 0838884567)
+    // Expected: system returns "It is dinner time!"
+    // ============================================================
+    @Test
+    void testSearchByMessageID() {
+        String msg4ID = msg4.getMessageID();
+
+        assertNotNull(msg4ID,
+            "Message 4 ID should not be null");
+        assertTrue(msg4ID.length() <= 10,
+            "Message ID should be 10 digits or fewer");
+        assertTrue(QuickChatApp.Message.getMessageIDs().contains(msg4ID),
+            "Message 4 ID should be found in the messageIDs array");
+        assertEquals("It is dinner time !", msg4.getMessageText(),
+            "Message text should match 'It is dinner time !'");
+    }
+
+    // ============================================================
+    // TEST 4: Search all messages for a particular recipient
+    // Test data: +27838884567
+    // Expected: "Where are you?..." and "Ok, I am leaving without you."
+    // ============================================================
+    @Test
+    void testSearchByRecipient() {
+        String targetRecipient = "+27838884567";
+        ArrayList<String> results = new ArrayList<>();
+
+        for (QuickChatApp.Message m : QuickChatApp.Message.getStoredMessages())
+            if (m.getRecipient().equals(targetRecipient))
+                results.add(m.getMessageText());
+
+        assertEquals(2, results.size(),
+            "Should find 2 stored messages for +27838884567");
+        assertTrue(results.contains("Where are you? You are late!I have asked you to be on time."),
+            "Should contain Message 2 text");
+        assertTrue(results.contains("Ok, I am leaving without you."),
+            "Should contain Message 5 text");
+    }
+
+    // ============================================================
+    // TEST 5: Delete a message using the message hash
+    // Test data: Test Message 2
+    // Expected: "Where are you?..." successfully deleted
+    // ============================================================
+    @Test
+    void testDeleteByHash() {
+        String hashToDelete = msg2.getMessageHash();
+        assertNotNull(hashToDelete, "Hash should not be null");
+
+        int sizeBefore = QuickChatApp.Message.getStoredMessages().size();
+        QuickChatApp.Message.deleteByHash(hashToDelete);
+
+        assertEquals(sizeBefore - 1, QuickChatApp.Message.getStoredMessages().size(),
+            "Stored messages size should decrease by 1 after deletion");
+
+        for (QuickChatApp.Message m : QuickChatApp.Message.getStoredMessages())
+            assertFalse(m.getMessageHash().equals(hashToDelete),
+                "Deleted message hash should no longer exist in stored list");
+    }
+
+    // ============================================================
+    // TEST 6: Message hash is correctly formatted (uppercase, colons)
+    // ============================================================
+    @Test
+    void testMessageHashFormat() {
+        String hash = msg1.getMessageHash();
+
+        assertNotNull(hash, "Hash should not be null");
+        assertTrue(hash.contains(":"),   "Hash should contain ':' separators");
+        assertEquals(hash.toUpperCase(), hash, "Hash should be entirely uppercase");
+        assertTrue(hash.length() > 4,    "Hash should have meaningful content");
+    }
+
+    // ============================================================
+    // TEST 7: Valid cell number passes checkRecipientCell
+    // ============================================================
+    @Test
+    void testCheckRecipientCell_valid() {
+        assertTrue(msg1.checkRecipientCell(),
+            "+27834557896 should be a valid cell number");
+    }
+
+    // ============================================================
+    // TEST 8: Invalid cell number (no +) fails checkRecipientCell
+    // ============================================================
+    @Test
+    void testCheckRecipientCell_invalid() {
+        assertFalse(msg4.checkRecipientCell(),
+            "0838884567 should be invalid - no international code (+)");
+    }
+
+    // ============================================================
+    // TEST 9: Disregarded messages array is correctly populated
+    // ============================================================
+    @Test
+    void testDisregardedMessagesArray() {
+        ArrayList<String> disregarded = QuickChatApp.Message.getDisregardedMessages();
+
+        assertTrue(disregarded.contains("Yohoooo, I am at your gate."),
+            "Disregarded array should contain Message 3");
+        assertEquals(1, disregarded.size(),
+            "Only 1 message was disregarded");
+    }
+}
