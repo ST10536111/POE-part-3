@@ -1,0 +1,38 @@
+name: Run JUnit Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Download JUnit 5 jars
+        run: |
+          mkdir -p lib
+          curl -L -o lib/junit-platform-console-standalone.jar \
+            https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.10.0/junit-platform-console-standalone-1.10.0.jar
+
+      - name: Compile source and tests
+        run: |
+          javac -cp lib/junit-platform-console-standalone.jar \
+            QuickChatApp.java MessageTest.java
+
+      - name: Run tests
+        run: |
+          java -jar lib/junit-platform-console-standalone.jar \
+            --class-path . \
+            --select-class MessageTest
